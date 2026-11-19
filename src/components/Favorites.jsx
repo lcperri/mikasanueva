@@ -67,6 +67,7 @@ const Favorites = () => {
                   <button
                     type="button"
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       toggleFavorite(prop.id); // Llama a la función global para quitarlo
                     }}

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../context/FavoritesContext';
 
 export function useFavoriteProperties() {
-  const { user } = useAuth();
+  const { user } = useAuth() ?? {};
   const { favoriteIds } = useFavorites();
 
   const [favoriteProperties, setFavoriteProperties] = useState([]);

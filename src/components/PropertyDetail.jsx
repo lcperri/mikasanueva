@@ -1,20 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   ArrowLeft, MapPin, Heart, Share2, Bed, Bath, Square, 
   Car, ShieldCheck, CheckCircle2, Phone, MessageCircle, Calendar 
 } from 'lucide-react';
+import { useFavorites } from '../context/FavoritesContext';
 import BackButton from './BackButton';
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80';
 
 const PropertyDetail = ( { properties } ) => {
   const [esFavorito, setEsFavorito] = useState(false);
 
   const { id } = useParams();
+  const { isFavorite, toggleFavorite } = useFavorites();
+
   const property = properties.find((prop) => String(prop.id) === id);
+  const [imagenPrincipal, setImagenPrincipal] = useState(FALLBACK_IMAGE);
 
   console.log(property);
 
-  const [imagenPrincipal, setImagenPrincipal] = useState(property?.images[0]);
+  useEffect(() => {
+    if (property?.images?.length > 0) {
+      setImagenPrincipal(property.images[0]);
+    } else {
+      setImagenPrincipal(FALLBACK_IMAGE);
+    }
+  }, [property]);
+
+  // 1. Mientras App.jsx está cargando el arreglo de propiedades desde Supabase
+  if (properties.length === 0) {
+    return (
+      <div className="min-h-[calc(100vh-80px)] bg-slate-50 flex items-center justify-center text-slate-500 text-sm font-medium">
+        Cargando detalles de la propiedad...
+      </div>
+    );
+  }
+
+  // 2. Si ya cargaron las propiedades pero el UUID de la URL no existe
+  if (!property) {
+    return (
+      <div className="min-h-[calc(100vh-80px)] bg-slate-50 flex flex-col items-center justify-center gap-3 px-4 text-center">
+        <h2 className="text-xl font-bold text-slate-900">Propiedad no encontrada</h2>
+        <p className="text-sm text-slate-500">El inmueble que buscas no existe o fue retirado del catálogo.</p>
+        <Link
+          to="/catalogo"
+          className="mt-2 bg-slate-900 text-white text-xs font-bold px-6 py-3 rounded-full hover:bg-slate-800 transition-all"
+        >
+          Volver al catálogo
+        </Link>
+      </div>
+    );
+  }
+
+  const saved = isFavorite(property.id);
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-slate-50 font-sans py-6 px-4 sm:px-8 md:px-12">
@@ -26,10 +64,11 @@ const PropertyDetail = ( { properties } ) => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setEsFavorito(!esFavorito)}
-              className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:border-[#ff385c] transition-all cursor-pointer shadow-sm"
+              onClick={() => toggleFavorite(property.id)}
+              title={saved ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+              className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:border-[#ff385c] transition-all cursor-pointer shadow-sm active:scale-90"
             >
-              <Heart className={`w-4 h-4 ${esFavorito ? 'fill-[#ff385c] text-[#ff385c]' : ''}`} />
+              <Heart className={`w-4 h-4 transition-colors ${saved ? 'fill-[#ff385c] text-[#ff385c]' : ''}`} />
             </button>
             <button
               type="button"
@@ -49,20 +88,22 @@ const PropertyDetail = ( { properties } ) => {
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {property.images.map((img, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setImagenPrincipal(img)}
-                className={`h-20 w-28 rounded-2xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
-                  imagenPrincipal === img ? 'border-[#ff385c] scale-95' : 'border-transparent opacity-75 hover:opacity-100'
-                }`}
-              >
-                <img src={img} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
+          {property.images?.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {property.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setImagenPrincipal(img)}
+                  className={`h-20 w-28 rounded-2xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                    imagenPrincipal === img ? 'border-[#ff385c] scale-95' : 'border-transparent opacity-75 hover:opacity-100'
+                  }`}
+                >
+                  <img src={img} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ESTRUCTURA DE CONTENIDO PRINCIPAL Y PANEL LATERAL */}
@@ -79,7 +120,7 @@ const PropertyDetail = ( { properties } ) => {
               <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-1 leading-snug">
                 {property.title}
               </h1>
-              <p className="text-xs text-slate-400 mt-1">Ref: MK-2026-{property.id}</p>
+              <p className="text-xs text-slate-400 mt-1">Ref: MK-2026-{String(property.id).slice(0, 8)}</p>
             </div>
 
             {/* ESPECIFICACIONES RÁPIDAS (ICONS BAR) */}
@@ -110,7 +151,7 @@ const PropertyDetail = ( { properties } ) => {
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-400 block font-medium">Área Total</span>
-                  <span className="text-sm font-bold">{property.area}</span>
+                  <span className="text-sm font-bold">{property.area} m²</span>
                 </div>
               </div>
 
@@ -120,31 +161,35 @@ const PropertyDetail = ( { properties } ) => {
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-400 block font-medium">Estacionamiento</span>
-                  <span className="text-sm font-bold">{property?.garage} Espacio</span>
+                  <span className="text-sm font-bold">{property?.garage ?? 0} Espacio</span>
                 </div>
               </div>
             </div>
 
             {/* DESCRIPCIÓN */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-bold text-slate-900">Descripción</h2>
-              <p className="text-sm text-slate-600 leading-relaxed font-normal">
-                {property.description}
-              </p>
-            </div>
+            {property.description && (
+              <div className="space-y-3">
+                <h2 className="text-lg font-bold text-slate-900">Descripción</h2>
+                <p className="text-sm text-slate-600 leading-relaxed font-normal">
+                  {property.description}
+                </p>
+              </div>
+            )}
 
             {/* CARACTERÍSTICAS Y AMENIDADES */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-bold text-slate-900">Amenidades y detalles</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {property.features.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                    <CheckCircle2 className="w-4 h-4 text-[#ff385c]" />
-                    {item}
-                  </div>
-                ))}
+            {property.features?.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="text-lg font-bold text-slate-900">Amenidades y detalles</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {property.features.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <CheckCircle2 className="w-4 h-4 text-[#ff385c]" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
 
@@ -154,7 +199,11 @@ const PropertyDetail = ( { properties } ) => {
               <div>
                 <span className="text-xs text-slate-400 font-semibold block">Precio de venta</span>
                 <span className="text-3xl font-extrabold text-[#ff385c]">{property.price}</span>
-                <span className="text-[11px] text-slate-400 block mt-1">Mantenimiento aprox: {property?.maintenance}</span>
+                {property?.maintenance && (
+                  <span className="text-[11px] text-slate-400 block mt-1">
+                    Mantenimiento aprox: {property.maintenance}
+                  </span>
+                )}
               </div>
 
               <hr className="border-slate-100" />
@@ -163,7 +212,7 @@ const PropertyDetail = ( { properties } ) => {
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Contactar con un asesor</h3>
                 
                 <a
-                  href="https://wa.me/51988067397"
+                  href={`https://wa.me/51${property.contact_phone || '988067397'}`}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3.5 rounded-full flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
